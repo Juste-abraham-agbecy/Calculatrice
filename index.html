@@ -35,5 +35,71 @@
             <button>=</button>
         </div>
     </div>
+
+    <script>
+        const ecran = document.getElementById('ecran');
+        const boutons = document.querySelectorAll('#boutons button');
+        const operateurs = ['+', '-', '*', '/'];
+
+        boutons.forEach(button => {
+            button.addEventListener('click', () => {
+                const value = button.textContent;
+                const dernierCaractere = ecran.textContent.slice(-1);
+
+                if (value === 'C') {
+                    ecran.textContent = '';
+                    return;
+                }
+
+                if (value === '=') {
+                    if (ecran.textContent === '' || operateurs.includes(dernierCaractere)) {
+                        return;
+                    }
+
+                    try {
+                        ecran.textContent = Function(`return ${ecran.textContent}`)();
+                    } catch (error) {
+                        ecran.textContent = 'Erreur';
+                    }
+
+                    return;
+                }
+
+                if (value === '←') {
+                    ecran.textContent = ecran.textContent.slice(0, -1);
+                    return;
+                }
+
+                if (value === '.') {
+                    if (ecran.textContent === '' || operateurs.includes(dernierCaractere)) {
+                        ecran.textContent += '0.';
+                    } else {
+                        const dernierNombre = ecran.textContent.split(/[+\-*/]/).pop();
+
+                        if (!dernierNombre.includes('.')) {
+                            ecran.textContent += '.';
+                        }
+                    }
+
+                    return;
+                }
+
+                if (operateurs.includes(value)) {
+                    if (ecran.textContent === '' || operateurs.includes(dernierCaractere)) {
+                        return;
+                    }
+
+                    ecran.textContent += value;
+                    return;
+                }
+
+                if (ecran.textContent === 'Erreur') {
+                    ecran.textContent = '';
+                }
+
+                ecran.textContent += value;
+            });
+        });
+    </script>
 </body>
 </html>

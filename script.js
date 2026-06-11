@@ -15,10 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const drawerHistory = document.getElementById('drawer-historique');
     const historyList = document.getElementById('history-list');
     const noHistoryMsg = document.getElementById('no-history-msg');
-    
+
     // État de l'application
     let expression = ''; // Expression mathématique interne
     let lastResult = null; // Stocke le dernier résultat de calcul (pour Ans)
+    let lastEvaluatedExpression = ''; // Stocke l'expression originale avant évaluation pour recalcul DEG/RAD
     let isDegreeMode = true; // Par défaut, mode Degrés
     let isEvaluated = false; // Vrai si le résultat affiché vient d'être calculé
     let historique = JSON.parse(localStorage.getItem('calc_history')) || [];
@@ -39,9 +40,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             btnMode.classList.remove('active-mode');
         }
-        
+
         // Si on a déjà évalué une formule, on la recalcule dans le nouveau mode
-        if (isEvaluated && expression !== '') {
+        if (isEvaluated && lastEvaluatedExpression !== '') {
             recalculate();
         }
     });
@@ -73,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- SUPPORT DU CLAVIER ---
     document.addEventListener('keydown', (e) => {
         const key = e.key;
-        
+
         if (/[0-9]/.test(key)) {
             handleAction(`btn-${key}`, key);
         } else if (key === '.') {
@@ -146,7 +147,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 expression = '';
                 updateDisplay();
                 break;
-                
+
             case 'btn-backspace':
                 if (expression.length > 0) {
                     // Si on supprime une fonction scientifique comme "sin(", "cos(", "tan(", "ln(", "log(", "sqrt("
@@ -160,16 +161,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 updateDisplay();
                 break;
-                
+
             case 'btn-equal':
                 evaluateExpression();
                 break;
-                
+
             case 'btn-neg':
                 expression = toggleSign(expression);
                 updateDisplay();
                 break;
-                
+
             case 'btn-sin':
                 expression += 'sin(';
                 updateDisplay();
@@ -194,32 +195,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 expression += 'sqrt(';
                 updateDisplay();
                 break;
-                
+
             case 'btn-power':
-                expression += '^';
-                updateDisplay();
+                appendOperator('^');
                 break;
-                
+
             case 'btn-sqr':
-                expression += '^2';
+                if (expression !== '' && !['+', '-', '*', '/', '%', '^', '('].includes(expression.slice(-1))) {
+                    expression += '^2';
+                }
                 updateDisplay();
                 break;
-                
+
             case 'btn-fact':
-                expression += '!';
+                if (expression !== '' && !['+', '-', '*', '/', '%', '^', '('].includes(expression.slice(-1))) {
+                    expression += '!';
+                }
                 updateDisplay();
                 break;
-                
+
             case 'btn-pi':
                 expression += 'π';
                 updateDisplay();
                 break;
-                
+
             case 'btn-e':
                 expression += 'e';
                 updateDisplay();
                 break;
-                
+
             case 'btn-ans':
                 if (lastResult !== null) {
                     expression += 'Ans';
@@ -230,30 +234,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 break;
 
             case 'btn-mod':
-                expression += '%';
-                updateDisplay();
+                appendOperator('%');
                 break;
-                
+
             case 'btn-add':
-                expression += '+';
-                updateDisplay();
+                appendOperator('+');
                 break;
             case 'btn-sub':
-                expression += '-';
-                updateDisplay();
+                appendOperator('-');
                 break;
             case 'btn-mul':
-                expression += '*';
-                updateDisplay();
+                appendOperator('*');
                 break;
             case 'btn-div':
-                expression += '/';
+                appendOperator('/');
+                break;
+
+            case 'btn-dot':
+                appendDecimal();
+                break;
+
+            case 'btn-rparen':
+                const lparens = (expression.match(/\(/g) || []).length;
+                const rparens = (expression.match(/\)/g) || []).length;
+                if (lparens > rparens && expression.slice(-1) !== '(') {
+                    expression += ')';
+                }
                 updateDisplay();
                 break;
-                
+
             default:
-                // Pour les chiffres et parenthèses/points
-                if (text && text !== '=' && text !== '±' && text !== 'DEG' && text !== 'RAD') {
+                // Pour les chiffres et parenthèses (le point décimal et la parenthèse fermante ont leurs propres boutons)
+                if (text && text !== '=' && text !== '±' && text !== 'DEG' && text !== 'RAD' && text !== '.' && text !== ')') {
                     expression += text;
                 }
                 updateDisplay();
@@ -262,22 +274,122 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * Ajoute un opérateur de façon sécurisée (évite les doublons incohérents)
+     */
+    function appendOperator(newOp) {
+        const isOp = (c) => ['+', '-', '*', '/', '%', '^'].includes(c);
+
+        if (expression === '') {
+            if (newOp === '-' || newOp === '+') {
+                expression = newOp;
+            }
+            updateDisplay();
+            return;
+        }
+
+        const lastChar = expression.slice(-1);
+
+        if (lastChar === '(') {
+            if (newOp === '-' || newOp === '+') {
+                expression += newOp;
+            }
+            updateDisplay();
+            return;
+        }
+
+        if (isOp(lastChar)) {
+            const beforeLast = expression.length > 1 ? expression.slice(-2, -1) : '';
+            const isLastUnary = (expression.length === 1) || beforeLast === '(' || isOp(beforeLast);
+
+            if (isLastUnary) {
+                if (beforeLast === '(') {
+                    if (newOp !== '-') {
+                        expression = expression.slice(0, -1);
+                    }
+                } else if (expression.length === 1) {
+                    if (newOp === '+' || newOp === '-') {
+                        expression = newOp;
+                    } else {
+                        expression = '';
+                    }
+                } else {
+                    expression = expression.slice(0, -2) + newOp;
+                }
+            } else {
+                if (['*', '/', '%', '^'].includes(newOp)) {
+                    expression = expression.slice(0, -1) + newOp;
+                } else {
+                    if (lastChar === '+' || lastChar === '-') {
+                        expression = expression.slice(0, -1) + newOp;
+                    } else {
+                        if (newOp === '-') {
+                            expression += newOp;
+                        } else {
+                            expression = expression.slice(0, -1) + newOp;
+                        }
+                    }
+                }
+            }
+        } else {
+            expression += newOp;
+        }
+        updateDisplay();
+    }
+
+    /**
+     * Ajoute un point décimal après validation pour empêcher les nombres comme 2.7.08
+     */
+    function appendDecimal() {
+        if (expression === '') {
+            expression += '0.';
+            updateDisplay();
+            return;
+        }
+
+        const lastChar = expression.slice(-1);
+        if (lastChar === '.') return;
+
+        const parts = expression.split(/[\+\-\*\/\%\^\(\)]/);
+        const currentNumber = parts[parts.length - 1];
+
+        if (['+', '-', '*', '/', '%', '^', '('].includes(lastChar)) {
+            expression += '0.';
+        } else if (/[0-9]/.test(lastChar)) {
+            if (!currentNumber.includes('.')) {
+                expression += '.';
+            }
+        } else if (['π', 'e', 'Ans', ')', '!'].includes(lastChar)) {
+            // Multiplication implicite pour les constantes ou parenthèse fermante
+            expression += '*0.';
+        }
+        updateDisplay();
+    }
+
+    /**
+     * Retourne le dernier nombre en cours de saisie à la fin de l'expression
+     */
+    function getLastNumber(expr) {
+        const match = expr.match(/([0-9.]+|π|e|Ans)$/);
+        return match ? match[0] : '';
+    }
+
+    /**
      * Alterne le signe (+/-) du dernier nombre saisi dans l'expression
      */
     function toggleSign(expr) {
         if (expr === '') return '-';
-        
+
         // Regex recherchant le dernier nombre à la fin de l'expression
         // (y compris décimaux, π, e, Ans)
         const numRegex = /(-)?([0-9.]+|π|e|Ans)$/;
         const match = expr.match(numRegex);
-        
+
         if (match) {
             const fullMatch = match[0];
             const hasMinus = match[1];
             const rest = match[2];
             const exprWithoutLast = expr.slice(0, -fullMatch.length);
-            
+
             if (hasMinus) {
                 return exprWithoutLast + rest;
             } else {
@@ -294,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function formatDisplayExpression(expr) {
         if (expr === '') return '';
-        
+
         return expr
             .replace(/\*/g, ' × ')
             .replace(/\//g, ' ÷ ')
@@ -314,8 +426,24 @@ document.addEventListener('DOMContentLoaded', () => {
      * Met à jour les écrans de la calculatrice
      */
     function updateDisplay() {
-        ecranFormule.textContent = formatDisplayExpression(expression);
-        
+        if (!isEvaluated) {
+            ecranFormule.textContent = formatDisplayExpression(expression);
+
+            if (expression === '') {
+                ecranResultat.textContent = '0';
+            } else {
+                try {
+                    const result = evaluate(expression);
+                    ecranResultat.textContent = formatResult(result);
+                } catch (e) {
+                    const lastNum = getLastNumber(expression);
+                    if (lastNum !== '') {
+                        ecranResultat.textContent = lastNum;
+                    }
+                }
+            }
+        }
+
         // Ajustement automatique de la taille de police sur le grand écran
         const textLen = ecranResultat.textContent.length;
         if (textLen > 16) {
@@ -332,9 +460,11 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function recalculate() {
         try {
-            const result = evaluate(expression);
+            const result = evaluate(lastEvaluatedExpression);
             const formattedResult = formatResult(result);
             ecranResultat.textContent = formattedResult;
+            expression = formattedResult.replace(/ /g, '');
+            lastResult = result;
             updateDisplay();
         } catch (e) {
             ecranResultat.textContent = 'Erreur';
@@ -346,37 +476,38 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function evaluateExpression() {
         if (expression === '') return;
-        
+
         try {
             const rawExpr = expression;
             const result = evaluate(rawExpr);
             const formattedResult = formatResult(result);
-            
+
             // Affichage de la formule originale dans la ligne du haut
             ecranFormule.textContent = formatDisplayExpression(rawExpr) + ' =';
-            
+
             // Affichage du résultat
             ecranResultat.textContent = formattedResult;
-            
+
             // Sauvegarde dans l'historique
             const historyItem = {
                 expr: formatDisplayExpression(rawExpr),
                 res: formattedResult,
                 timestamp: Date.now()
             };
-            
+
             historique.unshift(historyItem);
             // Limiter à 50 éléments dans l'historique
             if (historique.length > 50) historique.pop();
-            
+
             localStorage.setItem('calc_history', JSON.stringify(historique));
             renderHistory();
-            
+
             // Préparer l'état pour la suite
             lastResult = result;
+            lastEvaluatedExpression = rawExpr;
             expression = formattedResult.replace(/ /g, ''); // Le résultat devient la nouvelle expression
             isEvaluated = true;
-            
+
             updateDisplay();
         } catch (error) {
             console.error(error);
@@ -395,27 +526,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isFinite(value)) {
             return value > 0 ? 'Indéfini' : '-Indéfini'; // ou 'Infinity'
         }
-        
+
         // Si c'est un entier, on le renvoie
         if (Number.isInteger(value)) {
             return value.toString();
         }
-        
+
         // Éliminer les erreurs d'arrondi à virgule flottante (ex: 0.1 + 0.2 = 0.30000000000000004)
         const fixedVal = parseFloat(value.toFixed(12));
-        
+
         // Si le nombre est très proche d'un entier après correction d'arrondi
         if (Number.isInteger(fixedVal)) {
             return fixedVal.toString();
         }
-        
+
         // Formatage standard des décimaux
         const strVal = fixedVal.toString();
         if (strVal.length > 14) {
             // Conversion en notation scientifique si la chaîne est trop longue
             return fixedVal.toExponential(8);
         }
-        
+
         return strVal;
     }
 
@@ -424,14 +555,14 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function renderHistory() {
         historyList.innerHTML = '';
-        
+
         if (historique.length === 0) {
             noHistoryMsg.style.display = 'block';
             return;
         }
-        
+
         noHistoryMsg.style.display = 'none';
-        
+
         historique.forEach((item, index) => {
             const li = document.createElement('li');
             li.className = 'history-item';
@@ -441,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="history-expr">${item.expr}</span>
                 <span class="history-res">${item.res}</span>
             `;
-            
+
             // Clic sur l'élément de l'historique pour le recharger
             const loadHistoryItem = () => {
                 // Convertir le résultat affiché en expression interne
@@ -451,7 +582,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ecranResultat.textContent = item.res;
                 drawerHistory.classList.remove('open');
             };
-            
+
             li.addEventListener('click', loadHistoryItem);
             li.addEventListener('keydown', (e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
@@ -459,7 +590,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     loadHistoryItem();
                 }
             });
-            
+
             historyList.appendChild(li);
         });
     }
@@ -474,16 +605,16 @@ document.addEventListener('DOMContentLoaded', () => {
     function tokenize(str) {
         const tokens = [];
         let i = 0;
-        
+
         while (i < str.length) {
             const char = str[i];
-            
+
             // Espaces blancs
             if (/\s/.test(char)) {
                 i++;
                 continue;
             }
-            
+
             // Nombres réels (y compris avec virgule)
             if (/[0-9.]/.test(char)) {
                 let numStr = '';
@@ -501,14 +632,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 tokens.push({ type: 'NUMBER', value: num });
                 continue;
             }
-            
+
             // Constante PI (π)
             if (char === 'π') {
                 tokens.push({ type: 'NUMBER', value: Math.PI });
                 i++;
                 continue;
             }
-            
+
             // Constantes et Fonctions (mots alphabétiques)
             if (/[a-zA-Z]/.test(char)) {
                 let word = '';
@@ -516,7 +647,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     word += str[i];
                     i++;
                 }
-                
+
                 if (word === 'e') {
                     tokens.push({ type: 'NUMBER', value: Math.E });
                 } else if (word === 'Ans') {
@@ -528,7 +659,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 continue;
             }
-            
+
             // Parenthèses et postfixés
             if (char === '(') {
                 tokens.push({ type: 'LPAREN', value: '(' });
@@ -545,17 +676,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 i++;
                 continue;
             }
-            
+
             // Opérateurs binaires
             if (['+', '-', '*', '/', '%', '^'].includes(char)) {
                 tokens.push({ type: 'OPERATOR', value: char });
                 i++;
                 continue;
             }
-            
+
             throw new Error(`Caractère inconnu: ${char}`);
         }
-        
+
         // --- MULTIPLICATION IMPLICITE ---
         // Insère un opérateur '*' entre deux opérandes adjacents sans opérateur explicite.
         // Cas :
@@ -570,26 +701,26 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let j = 0; j < tokens.length; j++) {
             const curr = tokens[j];
             processedTokens.push(curr);
-            
+
             if (j < tokens.length - 1) {
                 const next = tokens[j + 1];
-                
+
                 const isCurrOperand = (curr.type === 'NUMBER' || curr.type === 'RPAREN' || curr.type === 'POSTFIX_OP');
                 const isNextOperand = (next.type === 'NUMBER' || next.type === 'LPAREN' || next.type === 'FUNCTION');
-                
+
                 if (isCurrOperand && isNextOperand) {
                     processedTokens.push({ type: 'OPERATOR', value: '*' });
                 }
             }
         }
-        
+
         // --- OPÉRATEURS UNABIRES (+/-) ---
         // Transforme '+' ou '-' en opérateur unaire s'il est au début de l'expression
         // ou immédiatement après un autre opérateur ou une parenthèse ouvrante.
         const finalTokens = [];
         for (let j = 0; j < processedTokens.length; j++) {
             const curr = processedTokens[j];
-            
+
             if (curr.type === 'OPERATOR' && (curr.value === '-' || curr.value === '+')) {
                 const prev = j > 0 ? processedTokens[j - 1] : null;
                 if (!prev || prev.type === 'OPERATOR' || prev.type === 'LPAREN') {
@@ -602,7 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             finalTokens.push(curr);
         }
-        
+
         return finalTokens;
     }
 
@@ -612,7 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function shuntingYard(tokens) {
         const outputQueue = [];
         const operatorStack = [];
-        
+
         const precedence = {
             '+': 1, '-': 1,
             '*': 2, '/': 2, '%': 2,
@@ -620,7 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'u-': 4, 'u+': 4,
             '!': 5
         };
-        
+
         const associativity = {
             '+': 'L', '-': 'L',
             '*': 'L', '/': 'L', '%': 'L',
@@ -628,7 +759,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'u-': 'R', 'u+': 'R',
             '!': 'L'
         };
-        
+
         for (const token of tokens) {
             if (token.type === 'NUMBER') {
                 outputQueue.push(token);
@@ -646,12 +777,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     outputQueue.push(operatorStack.pop());
                 }
-                
+
                 if (!hasLparen) {
                     throw new Error("Parenthèses déséquilibrées");
                 }
                 operatorStack.pop(); // Enlever la parenthèse '('
-                
+
                 // Si le sommet est une fonction, on l'envoie à la sortie
                 if (operatorStack.length > 0 && operatorStack[operatorStack.length - 1].type === 'FUNCTION') {
                     outputQueue.push(operatorStack.pop());
@@ -666,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const op2 = top.value;
                     const p1 = precedence[op1];
                     const p2 = precedence[op2];
-                    
+
                     if ((associativity[op1] === 'L' && p1 <= p2) || (associativity[op1] === 'R' && p1 < p2)) {
                         outputQueue.push(operatorStack.pop());
                     } else {
@@ -676,7 +807,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 operatorStack.push(token);
             }
         }
-        
+
         while (operatorStack.length > 0) {
             const top = operatorStack[operatorStack.length - 1];
             if (top.type === 'LPAREN' || top.type === 'RPAREN') {
@@ -684,7 +815,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             outputQueue.push(operatorStack.pop());
         }
-        
+
         return outputQueue;
     }
 
@@ -693,7 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
      */
     function evaluateRPN(rpnTokens) {
         const stack = [];
-        
+
         for (const token of rpnTokens) {
             if (token.type === 'NUMBER') {
                 stack.push(token.value);
@@ -716,11 +847,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 stack.push(evaluateBinaryOperator(token.value, a, b));
             }
         }
-        
+
         if (stack.length !== 1) {
             throw new Error("Expression incomplète");
         }
-        
+
         return stack[0];
     }
 
@@ -731,7 +862,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (n < 0) throw new Error("Factoriel d'un négatif indéfini");
         if (!Number.isInteger(n)) throw new Error("Factoriel d'un décimal indéfini");
         if (n > 170) return Infinity; // Dépassement de capacité double float
-        
+
         let result = 1;
         for (let i = 2; i <= n; i++) {
             result *= i;
@@ -748,16 +879,16 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isDegreeMode && ['sin', 'cos', 'tan'].includes(func)) {
             rad = val * Math.PI / 180;
         }
-        
+
         switch (func) {
             case 'sin':
                 const sinVal = Math.sin(rad);
                 return Math.abs(sinVal) < 1e-15 ? 0 : sinVal;
-                
+
             case 'cos':
                 const cosVal = Math.cos(rad);
                 return Math.abs(cosVal) < 1e-15 ? 0 : cosVal;
-                
+
             case 'tan':
                 // En mode degré, tan(90) ou tan(270) etc. sont indéfinis (division par zéro)
                 if (isDegreeMode && Math.abs(val % 180) === 90) {
@@ -765,19 +896,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 const tanVal = Math.tan(rad);
                 return Math.abs(tanVal) < 1e-15 ? 0 : tanVal;
-                
+
             case 'ln':
                 if (val <= 0) throw new Error("Hors domaine ln");
                 return Math.log(val);
-                
+
             case 'log':
                 if (val <= 0) throw new Error("Hors domaine log");
                 return Math.log10(val);
-                
+
             case 'sqrt':
                 if (val < 0) throw new Error("Hors domaine racine");
                 return Math.sqrt(val);
-                
+
             default:
                 throw new Error(`Fonction inconnue : ${func}`);
         }
@@ -811,7 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Nettoyage rapide pour les cas limites
         let cleanedStr = str.trim();
         if (cleanedStr === '') return 0;
-        
+
         // Parenthèses non fermées automatiques (très apprécié en cours de saisie, ex: 5 * sin(30 -> 5 * sin(30))
         let lparens = (cleanedStr.match(/\(/g) || []).length;
         let rparens = (cleanedStr.match(/\)/g) || []).length;
@@ -819,7 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
             cleanedStr += ')';
             rparens++;
         }
-        
+
         const tokens = tokenize(cleanedStr);
         const rpn = shuntingYard(tokens);
         return evaluateRPN(rpn);

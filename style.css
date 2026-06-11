@@ -3,30 +3,30 @@
     --bg-card: rgba(22, 29, 49, 0.65);
     --bg-screen: rgba(10, 14, 26, 0.85);
     --border-color: rgba(255, 255, 255, 0.08);
-    
+
     --btn-num: rgba(255, 255, 255, 0.06);
     --btn-num-hover: rgba(255, 255, 255, 0.12);
     --btn-num-active: rgba(255, 255, 255, 0.18);
     --btn-num-color: #f1f5f9;
-    
+
     --btn-sci: rgba(99, 102, 241, 0.12);
     --btn-sci-hover: rgba(99, 102, 241, 0.22);
     --btn-sci-active: rgba(99, 102, 241, 0.32);
     --btn-sci-color: #a5b4fc;
-    
+
     --btn-op: rgba(245, 158, 11, 0.12);
     --btn-op-hover: rgba(245, 158, 11, 0.22);
     --btn-op-active: rgba(245, 158, 11, 0.32);
     --btn-op-color: #fde047;
-    
+
     --btn-clear: rgba(239, 68, 68, 0.12);
     --btn-clear-hover: rgba(239, 68, 68, 0.22);
     --btn-clear-color: #fca5a5;
-    
+
     --btn-delete: rgba(244, 63, 94, 0.12);
     --btn-delete-hover: rgba(244, 63, 94, 0.22);
     --btn-delete-color: #fda4af;
-    
+
     --text-primary: #f8fafc;
     --text-secondary: #94a3b8;
     --font-outfit: 'Outfit', sans-serif;
@@ -67,7 +67,8 @@ body {
 .blob-1 {
     width: 400px;
     height: 400px;
-    background-color: rgba(99, 102, 241, 0.15); /* Purple-ish */
+    background-color: rgba(99, 102, 241, 0.15);
+    /* Purple-ish */
     top: -100px;
     left: -100px;
 }
@@ -75,7 +76,8 @@ body {
 .blob-2 {
     width: 500px;
     height: 500px;
-    background-color: rgba(236, 72, 153, 0.1); /* Pink-ish */
+    background-color: rgba(236, 72, 153, 0.1);
+    /* Pink-ish */
     bottom: -150px;
     right: -100px;
     animation-delay: 3s;
@@ -85,6 +87,7 @@ body {
     0% {
         transform: translate(0, 0) scale(1);
     }
+
     100% {
         transform: translate(50px, 30px) scale(1.1);
     }
@@ -126,6 +129,7 @@ body {
     font-weight: 600;
     background: linear-gradient(135deg, #a5b4fc, #c084fc);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: 0.5px;
 }
@@ -228,7 +232,7 @@ body {
 }
 
 /* Button Subscripts */
-#boutons button sub, 
+#boutons button sub,
 #boutons button sup {
     font-size: 0.65rem;
     margin-left: 1px;
@@ -485,18 +489,22 @@ body {
     #app-container {
         padding: 10px;
     }
+
     #calculatrice {
         padding: 18px;
         border-radius: 20px;
     }
+
     #ecran-container {
         min-height: 90px;
         margin-bottom: 16px;
         padding: 12px 16px;
     }
+
     #ecran-resultat {
         font-size: 1.8rem;
     }
+
     #boutons button {
         height: 44px;
         font-size: 0.95rem;
@@ -508,9 +516,11 @@ body {
     #calculatrice {
         padding: 14px;
     }
+
     #boutons {
         gap: 6px;
     }
+
     #boutons button {
         height: 42px;
         font-size: 0.9rem;
